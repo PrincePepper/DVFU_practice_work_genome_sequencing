@@ -1,45 +1,9 @@
-import codecs
 import sys
-import gzip
 from PyQt5 import uic
-from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog
+from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox
+from PyQt5 import QtCore
 
-
-class FileParser:
-    def __init__(self, filename):
-        self.__filename = filename
-        self.data = {}
-        self.read = []
-        self.tile_num = str()
-
-    def parse(self):
-        if '.gz' in self.__filename:
-            self.__gz_parse()
-        else:
-            self.__txt_parse()
-        return self.data
-
-    def __file_iteration(self, pos, line):
-        if pos % 4 == 0:
-            self.tile_num = line.split(':')[2]
-        self.read.append(line)
-
-        if pos % 4 == 3:
-            if self.tile_num not in self.data:
-                self.data[self.tile_num] = []
-            self.data[self.tile_num].append(self.read.copy())
-            self.read = []
-
-    def __txt_parse(self):
-        with open(self.__filename, 'r') as file:
-            for pos, line in enumerate(file):
-                self.__file_iteration(pos, line)
-
-    def __gz_parse(self):
-        with gzip.open(self.__filename, 'rb') as file:
-            for pos, line in enumerate(file):
-                line = codecs.decode(line, 'UTF-8')
-                self.__file_iteration(pos, line)
+from file_parser import FileParser
 
 
 class MainWindow(QMainWindow):
@@ -64,18 +28,34 @@ class MainWindow(QMainWindow):
         self.deleteTilesButton.clicked.connect(self.deleteTiles)
         self.acceptAddTileButton.clicked.connect(self.addUselessTile)
         self.exportToFilesButton.clicked.connect(self.exportToFiles)
+        self.clearUselessTilesButton.clicked.connect(self.clearUselessTiles)
+
+    def keyPressEvent(self, e):
+        if e.key() == QtCore.Qt.Key.Key_Delete:
+            self.deleteUselessTile()
+
+    def deleteUselessTile(self):
+        items = self.uselessTileList.selectedItems()
+        for i in items:
+            self.tiles_pool.remove(i.text())
+        self.createUselessTileList()
+
+    def clearUselessTiles(self):
+        self.uselessTileList.clear()
+        self.tiles_pool = []
 
     def addUselessTile(self):
         tile = self.addTileTextEdit.toPlainText()
         if tile in self.tiles_pool or tile not in self.all_data:
             return
+        self.addTileTextEdit.clear()
         self.tiles_pool.append(tile)
-        self.createDeleteTileList()
+        self.createUselessTileList()
 
-    def createDeleteTileList(self):
-        self.deleteTileList.clear()
+    def createUselessTileList(self):
+        self.uselessTileList.clear()
         for pos, i in enumerate(self.tiles_pool):
-            self.deleteTileList.addItem(i)
+            self.uselessTileList.addItem(i)
 
     def showDialog(self):
         file_name = QFileDialog.getOpenFileName(self, 'Open file', '/home')[0]
@@ -95,19 +75,18 @@ class MainWindow(QMainWindow):
             self.all_data.pop(i)
         self.tiles_pool = []
         self.createAllTileList()
-        self.createDeleteTileList()
+        self.createUselessTileList()
 
     def exportToFiles(self):
-        with gzip.open('cut_sequence.txt.gz', 'wb') as file:
-            for tile in self.all_data.values():
-                for read in tile:
-                    for line in read:
-                        file.write(codecs.encode(line, 'UTF-8'))
-        with gzip.open('useless_sequence.txt.gz', 'wb') as file:
-            for tile in self.useless_data.values():
-                for read in tile:
-                    for line in read:
-                        file.write(codecs.encode(line, 'UTF-8'))
+        if not self.useless_data:
+            return
+        FileParser('cut_sequence.txt.gz').createFile(self.all_data)
+        FileParser('useless_sequence.txt.gz').createFile(self.useless_data)
+        self.useless_data = {}
+        msg = QMessageBox()
+        msg.setText('Done')
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.exec_()
 
 
 if __name__ == '__main__':
