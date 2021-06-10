@@ -58,7 +58,7 @@ class MainWindow(QMainWindow):
             self.uselessTileList.addItem(i)
 
     def showDialog(self):
-        file_name = QFileDialog.getOpenFileName(self, 'Open file', '/home')[0]
+        file_name = QFileDialog.getOpenFileName(self, 'Open File With Data')[0]
         if file_name == '':
             return
         self.all_data = FileParser(file_name).parse()
@@ -80,10 +80,19 @@ class MainWindow(QMainWindow):
     def exportToFiles(self):
         if not self.useless_data:
             return
-        FileParser('cut_sequence.txt.gz').createFile(self.all_data)
-        FileParser('useless_sequence.txt.gz').createFile(self.useless_data)
+        name_all = QFileDialog.getSaveFileName(self, 'Save Useful Data')[0]
+        name_useless = QFileDialog.getSaveFileName(self, 'Save Useless Data')[0]
+        if name_all == '':
+            name_all = 'cut_sequence.txt.gz'
+        if name_useless == '':
+            name_useless = 'useless_sequence.txt.gz'
+        name_all = ''.join(name_all.split('.')) + '.txt.gz'
+        name_useless = ''.join(name_useless.split('.')) + '.txt.gz'
+        FileParser(name_all).createFile(self.all_data)
+        FileParser(name_useless).createFile(self.useless_data)
         self.useless_data = {}
         msg = QMessageBox()
+        msg.setIcon(QMessageBox.Information)
         msg.setText('Done')
         msg.setStandardButtons(QMessageBox.Ok)
         msg.exec_()
