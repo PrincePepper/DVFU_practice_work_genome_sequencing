@@ -14,4 +14,4 @@
 - [Александр Пищиков](https://github.com/AlexPishchikov)
 - [Семен Середа](https://github.com/PrincePepper)
 - [Станислав Нагорнов](https://github.com/praisethedeviI)
-- [Жильцов Дмитрий](https://github.com/unomisey)
+- [Жильцов Дмитрий]()
