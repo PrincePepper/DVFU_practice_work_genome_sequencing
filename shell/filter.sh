@@ -1,7 +1,6 @@
 clear;
 gzip -cd $1 > data_file;
-grep -A1 "@HWI-" data_file > filtered_data_temp;
-grep -v -- "--" filtered_data_temp > filtered_data;
+grep -A1 --no-group-separator "@HWI-" data_file > filtered_data_temp;
 cut -d: -f '4 5' filtered_data > cut_data_temp;
 
 # cut -d# -f1 cut_data_temp | tr "N" " " > cut_data;
