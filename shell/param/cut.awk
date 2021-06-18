@@ -14,8 +14,8 @@
             print max_word;
         }
         else {
-            print prev >> deleted_data_file;
-            print max_word >> deleted_data_file;
+            print prev > deleted_data;
+            print max_word > deleted_data;
         }
     }
     else
