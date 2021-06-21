@@ -1,53 +1,75 @@
+import re
 import sys
 import os
-
+import subprocess
 from datetime import datetime
 
-from PyQt5.Qt import QMainWindow, QDialog, QApplication, QFileDialog, QScrollArea, QWidget, QVBoxLayout, QLabel
-from PyQt5 import uic, QtWidgets, QtGui
-from PyQt5.QtCore import QSize, Qt, QTimer
-from PyQt5.QtWidgets import QLineEdit, QTableWidgetItem, QDialog, QDialogButtonBox, QDesktopWidget
-from PyQt5.QtGui import QKeyEvent, QPixmap, QFont, QFontDatabase
+from PyQt5.Qt import QMainWindow, QDialog, QApplication, QFileDialog, QListWidget
+from qtpy import uic, QtCore
 
 
-class Main_window(QMainWindow):
+class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         uic.loadUi('ui_files/main_window.ui', self)
-        self.setWindowTitle("Фильтрация")
+        self.file_path = []
+        self.ranges_list.setSelectionMode(QListWidget.MultiSelection)
         self.choose_file_button.clicked.connect(self.choose_file)
         self.add_range_button.clicked.connect(self.add_range)
         self.start_processing_button.clicked.connect(self.start_processing)
-        os.system("if [ -f patterns ]; then rm patterns; fi;")
+        if os.name == "nt":
+            os.system("wsl if [ -f patterns ]; then rm patterns; fi;")
+        else:
+            os.system(" if [ -f patterns ]; then rm patterns; fi;")
         self.ranges = []
 
     def choose_file(self):
-        self.file_path = QFileDialog.getOpenFileName(self,
-                        "Выбрать файл",
-                        ".",
-                        "GZ archive(*.gz);;")
-        self.current_path_label.setText("".join(self.file_path[0]))
+        self.file_path = QFileDialog.getOpenFileName(self, "Выбрать файл", ".", "GZ archive(*.gz);;")
+        self.current_path_label.setText(str(self.file_path[0]))
+
+    def keyPressEvent(self, event):
+        if event.key() == QtCore.Qt.Key_Delete:
+            listItems = self.ranges_list.selectedItems()
+            if not listItems:
+                return
+            for item in listItems:
+                self.ranges_list.takeItem(self.ranges_list.row(item))
+        event.accept()
 
     def add_range(self):
-        if int(self.from_line_edit.text()) > int(self.to_line_edit.text()):
+        if len(self.from_line_edit.text()) <= 0:
             return
-        self.ranges.append([int(self.from_line_edit.text()), int(self.to_line_edit.text())])
+
+        temp_ranges = self.from_line_edit.text()
+        temp_ranges = temp_ranges.replace(',', ' ').split()
+
+        for i in temp_ranges:
+            if i.find('-') != -1:
+                temp_temp_ranges = list(map(int, i.replace('-', ' ').split()))
+                for i in range(temp_temp_ranges[0], temp_temp_ranges[1] + 1):
+                    self.ranges.append(i)
+            else:
+                self.ranges.append(int(i))
+        self.ranges = list(set(self.ranges))
         patterns_file = open("patterns", "a")
-        for i in range(self.ranges[-1][0], self.ranges[-1][1] + 1):
-            patterns_file.write(str(i) + '\n')
+        for i in range(len(self.ranges)):
+            patterns_file.write(str(self.ranges[i]) + '\n')
+            self.ranges_list.addItem(str(self.ranges[i]))
         patterns_file.close()
-        if self.ranges[-1][0] != self.ranges[-1][1]:
-            self.ranges_list.addItem(str(self.ranges[-1][0]) + " - " + str(self.ranges[-1][1]))
-        else:
-            self.ranges_list.addItem(str(self.ranges[-1][0]))
 
     def start_processing(self):
-        os.system("./filter.sh " + self.file_path[0] + " patterns")
-        os.rename("output", "output_" + "".join(str(datetime.now()).replace(' ', '_')).split('.')[0] + ".fastq")
+        if len(self.file_path) != 0:
+            if str(self.file_path[0]) != "\"":
+                if os.name == "nt":
+                    os.system("wsl ./filter.sh " + self.file_path[0] + " patterns")
+                    os.rename("output","output_" + "".join(str(datetime.now()).replace(' ', '_')).split('.')[0] + ".fastq")
+                else:
+                    os.system("./filter.sh " + self.file_path[0] + " patterns")
+                    os.rename("output", "output_" + "".join(str(datetime.now()).replace(' ', '_')).split('.')[0] + ".fastq")
 
 
 app = QApplication(sys.argv)
-start_window = Main_window()
+start_window = MainWindow()
 start_window.show()
 
 sys.exit(app.exec_())
