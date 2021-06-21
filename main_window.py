@@ -1,7 +1,9 @@
 from PyQt5 import uic
-from PyQt5.QtWidgets import QMainWindow, QFileDialog, QMessageBox
+from PyQt5.QtWidgets import QMainWindow, QFileDialog, QMessageBox,  QApplication, QWidget
 from PyQt5 import QtCore
 from file_parser import FileParser
+from PyQt5.QtGui import *
+from PyQt5.QtCore import Qt
 
 
 class MainWindow(QMainWindow):
@@ -12,7 +14,7 @@ class MainWindow(QMainWindow):
         self.coefficient_per_tile = {}
         self.max_read = 0
         self.file_path = str()
-
+        self.flag = 0
         self.tiles_pool = []
 
         self.initUI()
@@ -67,6 +69,8 @@ class MainWindow(QMainWindow):
         msg.setStandardButtons(QMessageBox.Ok)
         msg.exec_()
         self.createAllTileList()
+        self.flag = 1
+        self.update()
 
     def createAllTileList(self):
         self.allTileList.clear()
@@ -100,3 +104,69 @@ class MainWindow(QMainWindow):
 
         self.createAllTileList()
         self.createUselessTileList()
+        
+    def paintEvent(self,event):
+        painter = QPainter(self)
+        if self.flag == 1:
+            self.drawBrushes(painter)
+
+
+    def drawBrushes(self, qp):
+
+        data = dict()
+
+        for row in self.coefficient_per_tile:
+            r = list()
+            for column in self.coefficient_per_tile[row]:
+                value = column * 5220
+                if value > 256:
+                    r.append(256)
+                else:
+                    r.append(value)
+            data[row] = r
+
+        total_width = 500
+        total_height = 200
+        width = total_width / self.max_read
+        height = total_height / len(self.coefficient_per_tile)
+
+        x = 370
+        y = 250
+
+        count = 0
+        for row in data:
+            x = 370
+            qp.setBrush(QColor(200, 0, 0))
+            qp.setPen(QColor(0, 0, 0))
+            qp.drawText(330, y + height / 2, 30, height, 0, row)
+
+            for column in data[row]:
+                brush = QBrush(Qt.SolidPattern)
+                pen = QPen(Qt.SolidLine)
+                pen.setColor(QColor(column, column, column))
+                brush.setColor(QColor(column, column, column))
+
+                qp.setBrush(brush)
+                qp.setPen(pen)
+
+                qp.drawRect(x, y, width, height)
+                x = x + width
+
+            y = y + height
+
+        x = 370
+        qp.setBrush(QColor(200, 0, 0))
+        qp.setPen(QColor(0, 0, 0))
+
+        total_potracheno = 0
+
+        current_number = 1
+
+        chegoto_per_symbol = 9
+
+        while total_potracheno < total_width and current_number < self.max_read:
+            current_width = len(str(current_number)) * chegoto_per_symbol
+            qp.drawText(x, y, current_width, height, 0, str(current_number))
+            x += current_width
+            current_number += round(len(str(current_number)) * 1.3)
+            total_potracheno += current_width
