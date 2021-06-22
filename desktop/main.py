@@ -8,6 +8,10 @@ from itertools import islice
 from PyQt5.Qt import *
 from PyQt5 import uic, QtCore
 
+import warnings
+
+warnings.filterwarnings('ignore')
+
 plot_window = None
 coefficient_per_tile = {}
 max_read = 0
@@ -134,7 +138,6 @@ class Main_window(QMainWindow):
             self.cur_tile = line.split(':')[2]
 
         if self.cur_tile not in self.tiles:
-            print(self.cur_tile)
             self.num_of_read = 0
             self.tiles.append(self.cur_tile)
         if pos % 4 == 1:
