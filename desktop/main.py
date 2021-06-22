@@ -6,19 +6,19 @@ from datetime import datetime
 from itertools import islice
 
 from PyQt5.Qt import *
-from qtpy import uic, QtCore
+from PyQt5 import uic, QtCore
 
+plot_window = None
+coefficient_per_tile = {}
+max_read = 0
 
-class MainWindow(QMainWindow):
+class Main_window(QMainWindow):
     def __init__(self):
         super().__init__()
         uic.loadUi('ui_files/main_window.ui', self)
         self.file_path = []
         self.ranges = []
-        self.max_read = 0
         self.tiles = []
-        self.flag = 0
-        self.coefficient_per_tile = {}
 
         self.progressBar_label.hide()
         self.progressBar.hide()
@@ -34,7 +34,9 @@ class MainWindow(QMainWindow):
             os.system(" if [ -f patterns ]; then rm patterns; fi;")
 
     def painting(self):
-        self.flag = 1
+        global plot_window
+        plot_window = Plot_window()
+        plot_window.show()
 
     def choose_file(self):
         self.file_path = QFileDialog.getOpenFileName(self, "Выбрать файл", ".", "GZ archive(*.gz);;")
@@ -118,9 +120,10 @@ class MainWindow(QMainWindow):
                       "output" + "".join(str(datetime.now()).replace(' ', '_')).split('.')[0] + ".fastq")
 
     def parse(self):
+        global max_read
         with gzip.open(self.file_path[0], 'rb') as file:
             for line in islice(file, 1, 2):  # <--- change 1 to 2 and 16 to None314871519
-                self.max_read = len(line)
+                max_read = len(line)
         with gzip.open(self.file_path[0], 'rb') as file:
             for pos, line in enumerate(file):
                 line = codecs.decode(line, 'UTF-8')
@@ -134,28 +137,33 @@ class MainWindow(QMainWindow):
             print(self.cur_tile)
             self.num_of_read = 0
             self.tiles.append(self.cur_tile)
-
         if pos % 4 == 1:
             if self.num_of_read == 0:  # init self.__num_of_n
-                self.num_of_n = [0] * self.max_read
-                self.coefficient_per_tile[self.cur_tile] = [0] * self.max_read
+                self.num_of_n = [0] * max_read
+                coefficient_per_tile[self.cur_tile] = [0] * max_read
             self.num_of_read += 1
-            for i in range(self.max_read):
+            for i in range(max_read):
                 if line[i].lower() == 'n':
                     self.num_of_n[i] += 1
-                self.coefficient_per_tile[self.cur_tile][i] = self.num_of_n[i] / self.num_of_read
+                coefficient_per_tile[self.cur_tile][i] = self.num_of_n[i] / self.num_of_read
+
+
+class Plot_window(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        uic.loadUi('ui_files/plot_window.ui', self)
+        self.setWindowTitle("График")
 
     def paintEvent(self, event):
         painter = QPainter(self)
-        if self.flag == 1:
-            self.drawBrushes(painter)
+        self.drawBrushes(painter)
 
     def drawBrushes(self, qp):
         data = dict()
 
-        for row in self.coefficient_per_tile:
+        for row in coefficient_per_tile:
             r = list()
-            for column in self.coefficient_per_tile[row]:
+            for column in coefficient_per_tile[row]:
                 value = column * 5220
                 if value > 256:
                     r.append(256)
@@ -164,16 +172,17 @@ class MainWindow(QMainWindow):
             data[row] = r
 
         total_width = 500
-        total_height = 200
-        width = total_width / self.max_read
-        height = total_height / len(self.coefficient_per_tile)
+        total_height = 550
+        global max_read
+        width = total_width / max_read
+        height = total_height / len(coefficient_per_tile)
 
-        x = 370
-        y = 250
+        x = 20
+        y = 0
 
         count = 0
         for row in data:
-            x = 370
+            x = 0
             qp.setBrush(QColor(200, 0, 0))
             qp.setPen(QColor(0, 0, 0))
             qp.drawText(330, y + height / 2, 30, height, 0, row)
@@ -192,7 +201,7 @@ class MainWindow(QMainWindow):
 
             y = y + height
 
-        x = 370
+        x = 0
         qp.setBrush(QColor(200, 0, 0))
         qp.setPen(QColor(0, 0, 0))
 
@@ -202,7 +211,7 @@ class MainWindow(QMainWindow):
 
         chegoto_per_symbol = 9
 
-        while total_potracheno < total_width and current_number < self.max_read:
+        while total_potracheno < total_width and current_number < max_read:
             current_width = len(str(current_number)) * chegoto_per_symbol
             qp.drawText(x, y, current_width, height, 0, str(current_number))
             x += current_width
@@ -211,7 +220,7 @@ class MainWindow(QMainWindow):
 
 
 app = QApplication(sys.argv)
-start_window = MainWindow()
+start_window = Main_window()
 start_window.show()
 
 sys.exit(app.exec_())
