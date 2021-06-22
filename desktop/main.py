@@ -17,6 +17,8 @@ class MainWindow(QMainWindow):
         self.ranges = []
         self.max_read = 0
         self.tiles = []
+        self.flag = 0
+        self.coefficient_per_tile = {}
 
         self.progressBar_label.hide()
         self.progressBar.hide()
@@ -25,11 +27,14 @@ class MainWindow(QMainWindow):
         self.choose_file_button.clicked.connect(self.choose_file)
         self.add_range_button.clicked.connect(self.add_range)
         self.start_processing_button.clicked.connect(self.start_processing)
-
+        self.paint.clicked.connect(self.painting)
         if os.name == "nt":
             os.system("wsl if [ -f patterns ]; then rm patterns; fi;")
         else:
             os.system(" if [ -f patterns ]; then rm patterns; fi;")
+
+    def painting(self):
+        self.flag = 1
 
     def choose_file(self):
         self.file_path = QFileDialog.getOpenFileName(self, "Выбрать файл", ".", "GZ archive(*.gz);;")
@@ -126,7 +131,7 @@ class MainWindow(QMainWindow):
             self.cur_tile = line.split(':')[2]
 
         if self.cur_tile not in self.tiles:
-            print(self.__cur_tile)
+            print(self.cur_tile)
             self.num_of_read = 0
             self.tiles.append(self.cur_tile)
 
@@ -134,16 +139,16 @@ class MainWindow(QMainWindow):
             if self.num_of_read == 0:  # init self.__num_of_n
                 self.num_of_n = [0] * self.max_read
                 self.coefficient_per_tile[self.cur_tile] = [0] * self.max_read
-            self.__num_of_read += 1
+            self.num_of_read += 1
             for i in range(self.max_read):
                 if line[i].lower() == 'n':
                     self.num_of_n[i] += 1
                 self.coefficient_per_tile[self.cur_tile][i] = self.num_of_n[i] / self.num_of_read
 
-    # def paintEvent(self, event):
-    #     painter = QPainter(self)
-    #     if self.flag == 1:
-    #         self.drawBrushes(painter)
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        if self.flag == 1:
+            self.drawBrushes(painter)
 
     def drawBrushes(self, qp):
         data = dict()
