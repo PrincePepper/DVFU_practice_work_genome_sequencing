@@ -229,3 +229,5 @@ R39-L6-READ2.gz
 .misc/R39-L6-READ2.gz
 
 .idea/
+desktop/patterns
+desktop/output*
