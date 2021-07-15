@@ -11,9 +11,9 @@ from itertools import islice
 import pkg_resources
 from PyQt5 import QtCore
 from PyQt5.Qt import *
-from win32api import GetSystemMetrics
 
-# assert sys.version[0] == '3'
+assert sys.version[0] == '3'
+from win32api import GetSystemMetrics
 
 parser = ArgumentParser(description='Sequence filter GUI tool')
 
@@ -50,7 +50,12 @@ class MainWindow(QMainWindow):
         self.setupUi()
         logger.info('Spawn all object and widget')
         self.plot_window = None  # окно графика
+        #
+        # TODO: нужно дать описание обьектам ниже
+        #
         self.coefficient_per_tile = {}  #
+        self.size_file = 0  #
+        self.new_file_size = 0  #
         self.max_read = 0  #
         self.file_path = []  #
         self.ranges = []  #
@@ -60,7 +65,7 @@ class MainWindow(QMainWindow):
         self.chooseFileButton.clicked.connect(self.choose_file)
         self.addRangeButton.clicked.connect(self.add_range)
         self.startProcessingButton.clicked.connect(self.start_processing)
-        self.paintButton.clicked.connect(self.painting)
+        # self.paintButton.clicked.connect(self.painting)
         logger.info('Connect all activity')
 
         #
@@ -77,7 +82,7 @@ class MainWindow(QMainWindow):
     def setupUi(self):
         self.setObjectName("FilterSequence")
         self.setWindowModality(QtCore.Qt.NonModal)
-        self.setMaximumSize(QtCore.QSize(int(GetSystemMetrics(0) / 2), int(GetSystemMetrics(1) / 2)))
+        self.setMaximumSize(QtCore.QSize(int(GetSystemMetrics(0) / 1.5), int(GetSystemMetrics(1) / 1.5)))
 
         self.setFont(get_monospace_font())
         self.setContextMenuPolicy(QtCore.Qt.NoContextMenu)
@@ -91,13 +96,8 @@ class MainWindow(QMainWindow):
         self.verticalLayout = QVBoxLayout()
         self.verticalLayout.setObjectName("verticalLayout")
 
-        self.progressBarLabel = QLabel(self.centralwidget)
-        self.progressBarLabel.setObjectName("progressBar_label")
-        self.progressBarLabel.hide()
-        self.verticalLayout.addWidget(self.progressBarLabel)
-
         self.progressBar = QProgressBar(self.centralwidget)
-        self.progressBar.setProperty("value", 24)
+        self.progressBar.setProperty("value", 0)
         self.progressBar.setTextVisible(True)
         self.progressBar.setInvertedAppearance(False)
         self.progressBar.setFormat("%p%")
@@ -214,7 +214,6 @@ class MainWindow(QMainWindow):
     def retranslateUi(self):
         _translate = QtCore.QCoreApplication.translate
         self.setWindowTitle(_translate("FilterSequence", "FilterSequence"))
-        self.progressBarLabel.setText(_translate("FilterSequence", "Процесс загрузки файла"))
         self.chooseFileButton.setText(_translate("FilterSequence", "Выбрать файл для обработки"))
         self.label.setText(_translate("FilterSequence", "Введите диапазон или элементы через запятую для удаления"))
         self.addRangeButton.setText(_translate("FilterSequence", "Добавить"))
@@ -227,24 +226,34 @@ class MainWindow(QMainWindow):
     def painting(self):
         self.plot_window = PlotWindow()
         self.plot_window.show()
-        logger.info('1')
+        logger.info('Start drawing the graph')
 
     def choose_file(self):
+        logger.info('File upload process')
         self.file_path = QFileDialog.getOpenFileName(self, "Выбрать файл", ".", "GZ archive(*.gz);;")
         if len(self.file_path) != 0:
             if str(self.file_path[0]) != '':
-                self.currentPathLabel.setText(str(self.file_path[0]))
-                # self.progressBar_label.show()
-                # self.progressBar.show()
+                # ограничения на длину выводимой строки
+                if len(self.file_path[0]) > 40:
+                    temp_str = str("..." + self.file_path[0][len(self.file_path[0]) - 40:])
+                    self.currentPathLabel.setText(temp_str)
+                else:
+                    self.currentPathLabel.setText(str(self.file_path[0]))
+
+                self.progressBar.show()
                 msg = QMessageBox()
                 msg.setText('процесс загрузки файла, ожидайте')
-                logger.info('File upload process')
                 msg.setIcon(QMessageBox.Information)
                 msg.exec_()
-                self.parse()
+                # logger.info('Parsing started')
+                # self.parse()
+                # logger.info('Parsing finished')
                 msg.accept()
                 msg.setText('Готово')
                 logger.info('Done')
+
+                self.progressBar.hide()
+
                 msg.setStandardButtons(QMessageBox.Ok)
                 msg.exec_()
                 self.createAllTileList()
@@ -279,9 +288,10 @@ class MainWindow(QMainWindow):
             return
         for i, char in enumerate(temp_ranges):
             if char.isalpha():
-                logger.error('This string has forbidden characters: ' + '«' + char + '»' + ' in position - ' + str(i))
-                # TODO: нужно норм сделать отображение «show_error»
-                # show_error('Ошибка в строке', 'qqq', 'fwesd')
+                logger.error(
+                    'This string has forbidden characters: ' + '«' + char + '»' + ' in position - ' + str(i + 1))
+                # отображение ошибки
+                show_error('Ошибка в строке', 'присутвуют буквы', 'они запрешены', blocking=True)
                 return
         temp_ranges = temp_ranges.replace(' ', '').replace(',', ' ').split()
 
@@ -324,10 +334,19 @@ class MainWindow(QMainWindow):
 
     def parse(self):
         with gzip.open(self.file_path[0], 'rb') as file:
+            old_file_position = file.tell()
+            file.seek(0, os.SEEK_END)
+            self.size_file = file.tell()
+            file.seek(old_file_position, os.SEEK_SET)
+
             for line in islice(file, 1, 2):  # <--- change 1 to 2 and 16 to None314871519
                 self.max_read = len(line)
+
         with gzip.open(self.file_path[0], 'rb') as file:
             for pos, line in enumerate(file):
+                self.new_file_size = file.tell()
+                self.progressBar.setProperty("value", remap(self.new_file_size, 0, self.size_file, 0, 100))
+                self.update()
                 line = codecs.decode(line, 'UTF-8')
                 self.__file_iteration(pos, line)
 
@@ -481,3 +500,10 @@ def show_error(title, text, informative_text, parent=None, blocking=False):
         mbox.exec()
     else:
         mbox.show()  # Not exec() because we don't want it to block!
+
+
+#
+# каст значений
+#
+def remap(value, fromLow, fromHigh, toLow, toHigh):
+    return (value - fromLow) * (toHigh - toLow) / (fromHigh - fromLow) + toLow
